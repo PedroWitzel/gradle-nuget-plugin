@@ -1,63 +1,58 @@
 package com.ullink
 
 import com.ullink.util.GradleHelper
-import org.gradle.api.tasks.Input
-import org.gradle.api.tasks.InputDirectory
-import org.gradle.api.tasks.InputFile
-import org.gradle.api.tasks.Optional
-import org.gradle.api.tasks.OutputDirectory
+import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.provider.Property
+import org.gradle.api.provider.SetProperty
+import org.gradle.api.tasks.*
 
-class NuGetRestore extends BaseNuGet {
+abstract class NuGetRestore extends BaseNuGet {
 
     @Optional
     @InputFile
-    File solutionFile
+    abstract RegularFileProperty getSolutionFile()
+
     @Optional
     @InputFile
-    File packagesConfigFile
+    abstract RegularFileProperty getPackagesConfigFile()
 
     @Input
-    def sources = [] as Set
+    abstract SetProperty<Object> getSources()
+
     @Input
-    def noCache = false
+    abstract Property<Boolean> getNoCache()
+
     @Optional
     @InputFile
-    File configFile
+    abstract RegularFileProperty getConfigFile()
+
     @Input
-    def requireConsent = false
+    abstract Property<Boolean> getRequireConsent()
+
     @Optional
     @InputDirectory
-    File solutionDirectory
+    abstract DirectoryProperty getSolutionDirectory()
+
     @Input
-    def disableParallelProcessing = false
+    abstract Property<Boolean> getDisableParallelProcessing()
+
     @Optional
     @Input
-    def msBuildVersion
+    abstract Property<String> getMsBuildVersion()
+
     @Optional
-    @Input
-    def packagesDirectory
+    @InputDirectory
+    abstract DirectoryProperty getPackagesDirectory()
 
     NuGetRestore() {
         super('restore')
+        noCache.convention(false)
+        requireConsent.convention(false)
+        disableParallelProcessing.convention(false)
 
         // Force always execute
         outputs.upToDateWhen { false }
-    }
-
-    void setSolutionFile(String path) {
-        solutionFile = project.file(path)
-    }
-
-    void setPackagesConfigFile(String path) {
-        packagesConfigFile = project.file(path)
-    }
-
-    void setConfigFile(String path) {
-        configFile = project.file(path)
-    }
-
-    void setSolutionDirectory(String path) {
-        solutionDirectory = project.file(path)
     }
 
     /**
@@ -65,29 +60,31 @@ class NuGetRestore extends BaseNuGet {
      */
     @Deprecated
     def setSource(String source) {
-        sources.clear()
-        sources.add(source)
+        sources.get().clear()
+        sources.get().add(source)
     }
 
     @Override
     void exec() {
-        if (packagesConfigFile) args packagesConfigFile
-        if (solutionFile) args solutionFile
+        if (packagesConfigFile.isPresent()) args packagesConfigFile.get()
+        if (solutionFile.isPresent()) args solutionFile.get()
 
-        if (!sources.isEmpty()) args '-Source', sources.join(';')
-        if (noCache) args '-NoCache'
-        if (configFile) args '-ConfigFile', configFile
-        if (requireConsent) args '-RequireConsent'
-        if (packagesDirectory) args '-PackagesDirectory', packagesDirectory
-        if (solutionDirectory) args '-SolutionDirectory', solutionDirectory
-        if (disableParallelProcessing) args '-DisableParallelProcessing'
-        if (!msBuildVersion) msBuildVersion = GradleHelper.getPropertyFromTask(project, 'version', 'msbuild')
-        if (msBuildVersion) args '-MsBuildVersion', msBuildVersion
+        if (sources.isPresent() && !sources.get().isEmpty()) args '-Source', sources.get().join(';')
+        if (noCache.isPresent()) args '-NoCache'
+        if (configFile.isPresent()) args '-ConfigFile', configFile.get()
+        if (requireConsent.isPresent()) args '-RequireConsent'
+        if (packagesDirectory.isPresent()) args '-PackagesDirectory', packagesDirectory.get()
+        if (solutionDirectory.isPresent()) args '-SolutionDirectory', solutionDirectory.get()
+        if (disableParallelProcessing.isPresent()) args '-DisableParallelProcessing'
+
+        final String _msBuildVersion = msBuildVersion.isPresent() ? msBuildVersion.get() :
+                GradleHelper.getPropertyFromTask(project, 'version', 'msbuild')
+        if (_msBuildVersion) args '-MsBuildVersion', _msBuildVersion
 
         project.logger.info "Restoring NuGet packages " +
-            (sources ? "from $sources" : '') +
-            (packagesConfigFile ? "for packages.config ($packagesConfigFile)": '') +
-            (solutionFile ? "for solution file ($solutionFile)" : '')
+                (sources.isPresent() ? "from ${sources.get()}" : '') +
+                (packagesConfigFile.isPresent() ? "for packages.config (${packagesConfigFile.get()}" : '') +
+                (solutionFile.isPresent() ? "for solution file (${solutionFile.get()}" : '')
         super.exec()
     }
 
@@ -95,14 +92,16 @@ class NuGetRestore extends BaseNuGet {
     File getPackagesFolder() {
         // https://docs.nuget.org/consume/command-line-reference#restore-command
         // If -PackagesDirectory <packagesDirectory> is specified, <packagesDirectory> is used as the packages directory.
-        if (packagesDirectory) {
-            return packagesDirectory
+        if (packagesDirectory.isPresent()) {
+            return packagesDirectory.get().asFile
         }
 
         // If -SolutionDirectory <solutionDirectory> is specified, <solutionDirectory>\packages is used as the packages directory.
         // SolutionFile can also be provided.
         // Otherwise use '.\packages'
-        def solutionDir = solutionFile ? project.file(solutionFile.getParent()) : solutionDirectory
+        def solutionDir = solutionFile.isPresent() ?
+                project.file(solutionFile.get().asFile.getParent()) :
+                solutionDirectory.get().asFile
         return new File(solutionDir ? solutionDir.toString() : '.', 'packages')
     }
 }

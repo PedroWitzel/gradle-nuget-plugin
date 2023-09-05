@@ -1,13 +1,16 @@
 package com.ullink
+
+import static org.custommonkey.xmlunit.XMLAssert.assertXMLEqual
+
 import org.custommonkey.xmlunit.XMLUnit
 import org.gradle.api.Project
 import org.gradle.testfixtures.ProjectBuilder
 import org.junit.Before
 import org.junit.Test
 
-import static org.custommonkey.xmlunit.XMLAssert.assertXMLEqual
 
 class NuGetSpecTest {
+
     @Before
     void init() {
         XMLUnit.setIgnoreWhitespace(true)
@@ -23,7 +26,7 @@ class NuGetSpecTest {
         project
     }
 
-    Project newNugetWithMsbuildProject() {
+    private Project newNugetWithMsbuildProject() {
         def project = newNugetProject()
         new MSBuildTaskBuilder(project)
                 .withAssemblyName('bar')
@@ -44,17 +47,16 @@ class NuGetSpecTest {
                     id 'foo'
                     delegate.description 'fooDescription'
                     frameworkAssemblies {
-                        frameworkAssembly (assemblyName: "System.Web", targetFramework: "net40")
+                        frameworkAssembly(assemblyName: 'System.Web', targetFramework: 'net40')
                     }
                 }
                 files {
-                    file ( src: 'bar', target: 'barTarget' )
-                    file ( src: 'baz', target: 'bazTarget' )
+                    file(src: 'bar', target: 'barTarget')
+                    file(src: 'baz', target: 'bazTarget')
                 }
             }
         }
-        def expected =
-        '''
+        def expected = '''
         <package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
             <metadata>
                 <id>foo</id>
@@ -70,7 +72,7 @@ class NuGetSpecTest {
             </files>
         </package>'''
 
-        assertXMLEqual (expected, project.tasks.nugetSpec.generateNuspec())
+        assertXMLEqual(expected, project.tasks.nugetSpec.generateNuspec())
     }
 
     @Test
@@ -79,21 +81,20 @@ class NuGetSpecTest {
 
         project.nugetSpec {
             nuspec = [
-                metadata: [
-                    id: 'foo',
-                    description: 'fooDescription',
-                    frameworkAssemblies: {
-                        frameworkAssembly (assemblyName: "System.Web", targetFramework: "net40")
-                    }
-                ],
-                files: [
-                    { file ( src: 'bar', target: 'barTarget' ) },
-                    { file ( src: 'baz', target: 'bazTarget' ) }
-                ]
+                    metadata: [
+                            id                 : 'foo',
+                            description        : 'fooDescription',
+                            frameworkAssemblies: {
+                                frameworkAssembly(assemblyName: "System.Web", targetFramework: "net40")
+                            },
+                    ],
+                    files   : [
+                            { file(src: 'bar', target: 'barTarget') },
+                            { file(src: 'baz', target: 'bazTarget') },
+                    ],
             ]
         }
-        def expected =
-        '''
+        def expected = '''
         <package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
             <metadata>
                 <id>foo</id>
@@ -108,7 +109,7 @@ class NuGetSpecTest {
                 <file src='baz' target='bazTarget' />
             </files>
         </package>'''
-        assertXMLEqual (expected, project.tasks.nugetSpec.generateNuspec())
+        assertXMLEqual(expected, project.tasks.nugetSpec.generateNuspec())
     }
 
     @Test
@@ -116,11 +117,10 @@ class NuGetSpecTest {
         def project = newNugetProject()
 
         project.nugetSpec {
-            nuspec { }
+            nuspec {}
         }
 
-        def expected =
-        '''
+        def expected = '''
         <package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
             <metadata>
                 <id>foo</id>
@@ -128,7 +128,7 @@ class NuGetSpecTest {
                 <description>fooDescription</description>
             </metadata>
         </package>'''
-        assertXMLEqual (expected, project.tasks.nugetSpec.generateNuspec())
+        assertXMLEqual(expected, project.tasks.nugetSpec.generateNuspec())
     }
 
     @Test
@@ -137,16 +137,15 @@ class NuGetSpecTest {
 
         project.nugetSpec {
             nuspec = [
-                metadata: [
-                    id: 'bar',
-                    description: 'barDescription',
-                    version: '4.5',
-                ]
+                    metadata: [
+                            id         : 'bar',
+                            description: 'barDescription',
+                            version    : '4.5',
+                    ]
             ]
         }
 
-        def expected =
-        '''
+        def expected = '''
         <package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
             <metadata>
                 <id>bar</id>
@@ -154,7 +153,7 @@ class NuGetSpecTest {
                 <description>barDescription</description>
             </metadata>
         </package>'''
-        assertXMLEqual (expected, project.tasks.nugetSpec.generateNuspec())
+        assertXMLEqual(expected, project.tasks.nugetSpec.generateNuspec())
     }
 
     @Test
@@ -168,8 +167,7 @@ class NuGetSpecTest {
             }
         }
 
-        def expected =
-                '''
+        def expected = '''
         <package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
             <metadata>
                 <id>foo</id>
@@ -180,7 +178,7 @@ class NuGetSpecTest {
                 <file src='folder\\bin\\bar.dll' target='lib/net35' />
             </files>
         </package>'''.replace('\\', File.separator)
-        assertXMLEqual (expected, project.tasks.nugetSpec.generateNuspec())
+        assertXMLEqual(expected, project.tasks.nugetSpec.generateNuspec())
     }
 
     @Test
@@ -189,12 +187,11 @@ class NuGetSpecTest {
 
         project.nugetSpec {
             nuspec {
-                files: []
+                files:[]
             }
         }
 
-        def expected =
-                '''
+        def expected = '''
         <package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
             <metadata>
                 <id>foo</id>
@@ -205,7 +202,7 @@ class NuGetSpecTest {
                 <file src='folder\\bin\\bar.dll' target='lib/net35' />
             </files>
         </package>'''.replace('\\', File.separator)
-        assertXMLEqual (expected, project.tasks.nugetSpec.generateNuspec())
+        assertXMLEqual(expected, project.tasks.nugetSpec.generateNuspec())
     }
 
     @Test
@@ -213,11 +210,10 @@ class NuGetSpecTest {
         def project = newNugetWithMsbuildProject()
 
         project.nugetSpec {
-            nuspec { }
+            nuspec {}
         }
 
-        def expected =
-                '''
+        def expected = '''
         <package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
             <metadata>
                 <id>foo</id>
@@ -228,7 +224,7 @@ class NuGetSpecTest {
                 <file src='folder\\bin\\bar.dll' target='lib/net35' />
             </files>
         </package>'''.replace('\\', File.separator)
-        assertXMLEqual (expected, project.tasks.nugetSpec.generateNuspec())
+        assertXMLEqual(expected, project.tasks.nugetSpec.generateNuspec())
     }
 
     @Test
@@ -237,11 +233,10 @@ class NuGetSpecTest {
         project.tasks.msbuild.metaClass.parseProject = false
 
         project.nugetSpec {
-            nuspec { }
+            nuspec {}
         }
 
-        def expected =
-                '''
+        def expected = '''
         <package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
             <metadata>
                 <id>foo</id>
@@ -249,7 +244,7 @@ class NuGetSpecTest {
                 <description>fooDescription</description>
             </metadata>
         </package>'''.replace('\\', File.separator)
-        assertXMLEqual (expected, project.tasks.nugetSpec.generateNuspec())
+        assertXMLEqual(expected, project.tasks.nugetSpec.generateNuspec())
     }
 
     @Test
@@ -264,8 +259,7 @@ class NuGetSpecTest {
             }
         }
 
-        def expected =
-                '''
+        def expected = '''
         <package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
             <metadata>
                 <id>foo</id>
@@ -276,7 +270,7 @@ class NuGetSpecTest {
                 <file src="anotherLib.dll" target="lib/net45" />
             </files>
         </package>'''
-        assertXMLEqual (expected, project.tasks.nugetSpec.generateNuspec())
+        assertXMLEqual(expected, project.tasks.nugetSpec.generateNuspec())
     }
 
     @Test
@@ -287,7 +281,7 @@ class NuGetSpecTest {
             nuspec {}
         }
 
-        File.createTempDir().with { projectFolder ->
+        File.createTempDir().with { File projectFolder ->
             deleteOnExit()
 
             new MSBuildTaskBuilder(project)
@@ -307,8 +301,7 @@ class NuGetSpecTest {
                         </packages>'''
             )
 
-            def expected =
-                    '''
+            def expected = '''
                     <package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
                         <metadata>
                             <id>foo</id>
@@ -389,8 +382,7 @@ class NuGetSpecTest {
 
             File projectJson = new File(projectFolder, 'project.json')
             projectJson.createNewFile()
-            projectJson.write(
-                    '''{
+            projectJson.write('''{
                           "dependencies": {
                             "depBar": "0.2.3.4",
                             "depFoo": "100.5.6",
@@ -406,8 +398,7 @@ class NuGetSpecTest {
                         }'''
             )
 
-            def expected =
-                    '''
+            def expected = '''
                     <package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
                         <metadata>
                             <id>foo</id>
@@ -443,8 +434,7 @@ class NuGetSpecTest {
 
             File projectJson = new File(projectFolder, 'project.json')
             projectJson.createNewFile()
-            projectJson.write(
-                    '''{
+            projectJson.write('''{
                           "dependencies": {
                             "depBar": "[0.2.3.4]",
                             "depFoo": "[100.5.*, 100.6)",
@@ -461,8 +451,7 @@ class NuGetSpecTest {
             )
             File projectLockJson = new File(projectFolder, 'project.lock.json')
             projectLockJson.createNewFile()
-            projectLockJson.write(
-                    '''{
+            projectLockJson.write('''{
                           "libraries": {
                             "depFoo/100.5.2": {
                             },
@@ -472,8 +461,7 @@ class NuGetSpecTest {
                         }'''
             )
 
-            def expected =
-                    '''
+            def expected = '''
                     <package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
                         <metadata>
                             <id>foo</id>
@@ -532,8 +520,7 @@ class NuGetSpecTest {
                         </packages>'''
             )
 
-            def expected =
-                    '''
+            def expected = '''
                     <package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
                         <metadata>
                             <id>foo</id>
@@ -569,15 +556,14 @@ class NuGetSpecTest {
                     .withMainProjectProperty('MSBuildProjectFile', 'packagereference.csproj')
                     .build()
 
-            def expected =
-                    '''
+            def expected = '''
                     <package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
                         <metadata>
                             <id>foo</id>
                             <version>2.1</version>
                             <description>fooDescription</description>
                             <dependencies>
-                                <dependency id="Microsoft.AspNetCore.Mvc.Abstractions" version="1.1.2"/>
+                                <dependency id="Microsoft.AspNetCore.Mvc.Abstractions" version="1.1.3"/>
                                 <dependency id="Microsoft.AspNetCore.Mvc.Core" version="1.1.2"/>
                                 <dependency id="Microsoft.Extensions.Caching.Abstractions" version="1.1.1"/>
                                 <dependency id="Microsoft.Extensions.Configuration.Binder" version="1.1.1"/>

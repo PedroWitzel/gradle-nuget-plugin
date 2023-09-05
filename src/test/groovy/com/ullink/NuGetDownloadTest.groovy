@@ -2,6 +2,7 @@ package com.ullink
 
 import org.apache.commons.io.FileUtils
 import org.gradle.api.Project
+import org.gradle.api.Task
 import org.gradle.testfixtures.ProjectBuilder
 import org.junit.After
 import org.junit.Assert
@@ -13,8 +14,8 @@ import org.junit.runners.JUnit4
 import java.nio.file.Paths
 import java.util.zip.CRC32
 
-@RunWith(JUnit4.class)
-class NuGetDownloadTest extends GroovyTestCase  {
+@RunWith(JUnit4)
+class NuGetDownloadTest extends GroovyTestCase {
 
     private File cachesFolder
     private File tempFolder
@@ -27,7 +28,6 @@ class NuGetDownloadTest extends GroovyTestCase  {
 
     @Before
     void init() {
-
         project = ProjectBuilder.builder().build()
 
         cachesFolder = Paths.get(
@@ -56,7 +56,7 @@ class NuGetDownloadTest extends GroovyTestCase  {
 
     @After
     void cleanup() {
-        if (tempFolder != null && tempFolder.exists()) {
+        if (tempFolder?.exists()) {
             tempFolder.deleteDir()
         }
     }
@@ -74,7 +74,7 @@ class NuGetDownloadTest extends GroovyTestCase  {
     void shouldThrowErrorOnInvalidHttpPath() {
         // When
         project.nugetPack {
-            nugetExePath = "http://localhost:99999"
+            nugetExePath = 'http://localhost:99999'
         }
 
         // Then
@@ -96,7 +96,7 @@ class NuGetDownloadTest extends GroovyTestCase  {
     @Test
     void shouldBeAbleToCopyPreviouslyDownloadedNugetFile() {
         // Given
-        downloadNugetExeToTemp("https://dist.nuget.org/win-x86-commandline/v3.3.0/nuget.exe")
+        downloadNugetExeToTemp('https://dist.nuget.org/win-x86-commandline/v3.3.0/nuget.exe')
 
         // When
         project.nugetPack {
@@ -120,7 +120,7 @@ class NuGetDownloadTest extends GroovyTestCase  {
     @Test
     void shouldDownloadNugetFromCustomUrl() {
         // Given
-        def customUrl = "https://dist.nuget.org/win-x86-commandline/v3.3.0/nuget.exe"
+        def customUrl = 'https://dist.nuget.org/win-x86-commandline/v3.3.0/nuget.exe'
 
         // When
         project.nugetPack {
@@ -134,25 +134,21 @@ class NuGetDownloadTest extends GroovyTestCase  {
 
         Assert.assertNotNull(cachedNugetFile)
 
-        downloadNugetExeToTemp("https://dist.nuget.org/win-x86-commandline/v3.3.0/nuget.exe")
+        downloadNugetExeToTemp('https://dist.nuget.org/win-x86-commandline/v3.3.0/nuget.exe')
 
         assertFileAreIdential(cachedNugetFile, simulatedNugetExecutablePath)
     }
 
-    private static void assertFileAreIdential(File expected, File actual){
-
+    private static void assertFileAreIdential(File expected, File actual) {
         def expectedChecksum = FileUtils.checksum(expected, new CRC32()).value
         def actualChecksum = FileUtils.checksum(actual, new CRC32()).value
 
         Assert.assertEquals(expectedChecksum, actualChecksum)
     }
 
-    private void downloadNugetExeToTemp(String remoteUrl){
-
+    private void downloadNugetExeToTemp(String remoteUrl) {
         def nonStandardNugetUrl = new URL(remoteUrl)
-
         FileUtils.copyURLToFile(nonStandardNugetUrl, simulatedNugetExecutablePath)
-
     }
 
     private Boolean nugetExecutableExistsInCache() {
@@ -164,12 +160,12 @@ class NuGetDownloadTest extends GroovyTestCase  {
             return null
         }
 
-        String[] filePatters = ["exe"]
+        String[] filePatters = ['exe']
 
         def allExecutables = FileUtils.listFiles(cachesFolder, filePatters, true)
 
         def allNugetExecutables = allExecutables.findAll {
-            "nuget.exe".equalsIgnoreCase(it.name)
+            'nuget.exe'.equalsIgnoreCase(it.name)
         }
 
         if (allNugetExecutables.size() == 1) {
@@ -184,7 +180,8 @@ class NuGetDownloadTest extends GroovyTestCase  {
     }
 
     private void executeSomeNugetTask() {
-        File nuspec = new File(project.tasks.nugetPack.temporaryDir, 'foo.nuspec')
+        def nugetPack = project.tasks.named('nugetPack').get()
+        File nuspec = new File(nugetPack.temporaryDir, 'foo.nuspec')
         nuspec.text = '''<?xml version='1.0'?>
 <package xmlns='http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd'>
   <metadata>
@@ -199,7 +196,7 @@ class NuGetDownloadTest extends GroovyTestCase  {
 </package>'''
 
         File fooFile = new File(project.tasks.nugetPack.temporaryDir, 'foo.txt')
-        fooFile.text = "Bar"
+        fooFile.text = 'Bar'
 
         project.nugetPack {
             basePath = project.tasks.nugetPack.temporaryDir

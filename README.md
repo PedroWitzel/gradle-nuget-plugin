@@ -53,7 +53,7 @@ nugetSpec {
             // version:     default is project.version
             // description: default is project.description
             // ...
-        ]
+        ],
         files: [
             { file (src: 'somefile1', target: 'tools') },
             { file (src: 'somefile2', target: 'tools') }
@@ -97,7 +97,7 @@ nugetSources {
 ```
 
 Where
- - operation - could be add, remove, update, enable, disable and list
+ - operation - could be added, remove, update, enable, disable and list
  - sourceName - name of the nuget feed
  - sourceUrl - url of the nuget feed
  - username - optional username for nuget sources that require http basic authentication

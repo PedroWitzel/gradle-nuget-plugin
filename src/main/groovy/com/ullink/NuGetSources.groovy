@@ -1,60 +1,66 @@
 package com.ullink
 
 import org.gradle.api.GradleException
+import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputFile
 import org.gradle.api.tasks.Optional
 
-class NuGetSources extends BaseNuGet {
-    
-    enum Operation{
-        add, remove, enable, disable, list, update
+abstract class NuGetSources extends BaseNuGet {
+
+    enum Operation {
+        add, remove, enable, disable, list, update,
     }
 
     @Input
-    Operation operation
+    abstract Property<Operation> getOperation()
+
     @Optional
     @Input
-    def sourceName
+    abstract Property<String> getSourceName()
+
     @Optional
     @Input
-    def sourceUrl
+    abstract Property<String> getSourceUrl()
+
     @Optional
     @Input
-    def username
+    abstract Property<String> getUsername()
+
     @Optional
     @Input
-    def password
+    abstract Property<String> getPassword()
+
     @Optional
     @InputFile
-    File configFile
+    abstract RegularFileProperty getConfigFile()
+
     @Input
-    def storePasswordInClearText = false
+    abstract Property<Boolean> getStorePasswordInClearText()
 
     NuGetSources() {
         super('sources')
-    }
-
-    void setConfigFile(String path) {
-        configFile = project.file(path)
+        storePasswordInClearText.convention(false)
     }
 
     @Override
     void exec() {
-        if(!operation){
+        if (!operation.isPresent()) {
             throw new GradleException('Operation not specified for NuGetSources task.')
         }
-        if(operation != Operation.list && !sourceName){
+        if (operation.get() != Operation.list && !sourceName.isPresent()) {
             throw new GradleException('SourceName not specified for NuGetSources task.')
         }
 
-        args operation
-        if (sourceName) args '-Name', sourceName
-        if (sourceUrl) args '-Source', sourceUrl        
-        if (username) args '-UserName', username
-        if (password) args '-Password', password
-        if (configFile) args '-ConfigFile', configFile
-        if (storePasswordInClearText) args '-StorePasswordInClearText'
+        args operation.get()
+        if (sourceName.isPresent()) args '-Name', sourceName.get()
+        if (sourceUrl.isPresent()) args '-Source', sourceUrl.get()
+        if (username.isPresent()) args '-UserName', username.get()
+        if (password.isPresent()) args '-Password', password.get()
+        if (configFile.isPresent()) args '-ConfigFile', configFile.get()
+        if (storePasswordInClearText.isPresent() && storePasswordInClearText.get()) args '-StorePasswordInClearText'
         super.exec()
     }
+
 }

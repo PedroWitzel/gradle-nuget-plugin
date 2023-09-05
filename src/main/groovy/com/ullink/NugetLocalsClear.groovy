@@ -1,20 +1,23 @@
 package com.ullink
 
+import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 
 
-class NugetLocalsClear  extends BaseNuGet{
+abstract class NugetLocalsClear extends BaseNuGet {
+
     @Input
-    def all = false
+    abstract Property<Boolean> getAll()
 
     NugetLocalsClear() {
         super('locals')
+        all.convention(false)
     }
 
     @Override
     void exec() {
         args '-clear'
-        if(all) args 'all'
+        if (all.getOrNull()) args 'all'
         super.exec()
     }
 

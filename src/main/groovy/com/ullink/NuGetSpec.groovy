@@ -4,15 +4,18 @@ import com.ullink.packagesparser.NugetParser
 import com.ullink.packagesparser.PackageReferenceParser
 import com.ullink.packagesparser.PackagesConfigParser
 import com.ullink.packagesparser.ProjectJsonParser
-import groovy.util.slurpersupport.GPathResult
+import groovy.xml.MarkupBuilder
 import groovy.xml.XmlUtil
+import groovy.xml.slurpersupport.GPathResult
+import org.gradle.api.Task
+import org.gradle.api.file.RegularFile
+import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.tasks.Exec
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.OutputFile
 
-class NuGetSpec extends Exec {
+abstract class NuGetSpec extends Exec {
 
-    def nuspecFile
     @Internal
     def nuspec
 
@@ -21,13 +24,15 @@ class NuGetSpec extends Exec {
     }
 
     @Internal
-    File getTempNuspecFile() {
-        new File(temporaryDir, project.name + '.nuspec')
+    RegularFile getTempNuspecFile() {
+        project.layout.projectDirectory.file(new File(temporaryDir, project.name + '.nuspec').path)
     }
 
     @OutputFile
-    File getNuspecFile() {
-        nuspecFile ?: getTempNuspecFile()
+    abstract RegularFileProperty getNuspecFile()
+
+    NuGetSpec() {
+        nuspecFile.convention(getTempNuspecFile())
     }
 
     void generateNuspecFile() {
@@ -40,12 +45,11 @@ class NuGetSpec extends Exec {
     String generateNuspec() {
         if (nuspec) {
             def sw = new StringWriter()
-            new groovy.xml.MarkupBuilder(sw).with {
+            new MarkupBuilder(sw).with {
                 def visitor
                 visitor = { entry ->
                     switch (entry) {
                         case Closure:
-                            entry.resolveStrategy = DELEGATE_FIRST
                             entry.delegate = delegate
                             entry.call()
                             break
@@ -61,35 +65,45 @@ class NuGetSpec extends Exec {
                             break
                     }
                 }
-                'package' (xmlns: 'http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd') {
+                'package'(xmlns: 'http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd') {
                     visitor nuspec
                 }
             }
-            supplementDefaultValueOnNuspec sw.toString()
+            return supplementDefaultValueOnNuspec(sw.toString())
+        } else {
+            return null
         }
     }
 
     String supplementDefaultValueOnNuspec(String nuspecString) {
-        def final msbuildTaskExists = project.tasks.findByName('msbuild') != null
-        def final packageConfigFileName = 'packages.config'
-        def final projectJsonFileName = 'project.json'
+        boolean msbuildTaskExists = true
+        Task msbuildTask
+        try {
+            msbuildTask = project.tasks.named('msbuild').get()
+        } catch (ignored) {
+            msbuildTaskExists = false
+            msbuildTask = null
+        }
 
-        GPathResult root = new XmlSlurper(false, false).parseText(nuspecString)
+        final String packageConfigFileName = 'packages.config'
+        final String projectJsonFileName = 'project.json'
+
+        GPathResult root = new groovy.xml.XmlSlurper(false, false).parseText(nuspecString)
 
         def defaultMetadata = []
         def setDefaultMetadata = { String node, value ->
             if (root.metadata[node].isEmpty()) {
-                defaultMetadata.add( { delegate."$node" value } )
+                defaultMetadata.add({ delegate."$node" value })
             }
         }
 
-        setDefaultMetadata ('id', project.name)
-        setDefaultMetadata ('version', project.version)
-        setDefaultMetadata ('description', project.description ? project.description : project.name)
+        setDefaultMetadata('id', project.name)
+        setDefaultMetadata('version', project.version)
+        setDefaultMetadata('description', project.description ? project.description : project.name)
 
         def appendAndCreateParentIfNeeded = {
             String parentNodeName, List children ->
-                if(!children.isEmpty()) {
+                if (!children.isEmpty()) {
                     if (root."$parentNodeName".isEmpty()) {
                         root << { "$parentNodeName" children }
                     } else {
@@ -99,18 +113,17 @@ class NuGetSpec extends Exec {
         }
 
         if (msbuildTaskExists) {
-            project.logger.debug("Msbuild plugin detected")
-            if (project.msbuild.parseProject) {
-                project.logger.debug("Add defaults from Msbuild plugin")
-                def mainProject = project.msbuild.mainProject
+            project.logger.debug('Msbuild plugin detected')
+            if (msbuildTask.parseProject) {
+                project.logger.debug('Add defaults from Msbuild plugin')
+                def mainProject = msbuildTask.mainProject
 
                 if (root.files.file.isEmpty()) {
-                    project.logger.debug("No files already defined in the NuGet spec, will add the ones from the msbuild task.")
+                    project.logger.debug('No files already defined in the NuGet spec, will add the ones from the msbuild task.')
                     def defaultFiles = []
-                    project.msbuild.mainProject.dotnetArtifacts.each {
-                        artifact ->
-                            def fwkFolderVersion = mainProject.properties.TargetFrameworkVersion.toString().replace('v', '').replace('.', '')
-                            defaultFiles.add({ file(src: artifact.toString(), target: 'lib/net' + fwkFolderVersion) })
+                    msbuildTask.mainProject.dotnetArtifacts.each { artifact ->
+                        def fwkFolderVersion = mainProject.properties.TargetFrameworkVersion.toString().replace('v', '').replace('.', '')
+                        defaultFiles.add({ file(src: artifact.toString(), target: 'lib/net' + fwkFolderVersion) })
                     }
                     appendAndCreateParentIfNeeded('files', defaultFiles)
                 }
@@ -119,10 +132,9 @@ class NuGetSpec extends Exec {
                 dependencies.addAll getDependencies(mainProject, projectJsonFileName, new ProjectJsonParser())
                 dependencies.addAll getDependencies(mainProject, mainProject.properties.MSBuildProjectFile.toString(), new PackageReferenceParser())
 
-                if (!dependencies.isEmpty())
-                    setDefaultMetadata('dependencies', dependencies)
-            }
-            else {
+                if (!dependencies.isEmpty()) setDefaultMetadata('dependencies', dependencies)
+
+            } else {
                 project.logger.debug("Msbuild plugin is configured with parseProject=false, no defaults added")
             }
         }
@@ -131,7 +143,7 @@ class NuGetSpec extends Exec {
 
         project.logger.info("Generated NuGetSpec file with ${root.files.file.size()} files " +
                 "and ${root.dependencies.dependecy.size()} dependencies")
-        XmlUtil.serialize (root)
+        XmlUtil.serialize(root)
     }
 
     Collection getDependencies(def mainProject, String fileName, NugetParser parser) {

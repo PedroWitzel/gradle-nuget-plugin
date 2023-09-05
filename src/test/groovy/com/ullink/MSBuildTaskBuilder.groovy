@@ -1,18 +1,21 @@
 package com.ullink
 
 import org.gradle.api.Project
+import org.gradle.api.Task
+import org.gradle.api.tasks.TaskProvider
 
 class MSBuildTaskBuilder {
+
     private final Map<String, Object> mainProjectProperties = [:]
     private final Project project
-    private final mainProject = new Object()
+    private final Object mainProject = new Object()
     private final List<File> artifacts = []
 
     MSBuildTaskBuilder(Project project) {
         this.project = project
     }
 
-    def build() {
+    TaskProvider<Task> build() {
         mainProject.metaClass.dotnetArtifacts = artifacts
         mainProject.metaClass.properties = mainProjectProperties
         project.tasks.register('msbuild') {

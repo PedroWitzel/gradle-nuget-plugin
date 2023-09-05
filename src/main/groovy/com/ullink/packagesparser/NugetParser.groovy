@@ -1,6 +1,5 @@
 package com.ullink.packagesparser
 
-interface NugetParser
-{
+interface NugetParser {
     Collection getDependencies(File file)
 }

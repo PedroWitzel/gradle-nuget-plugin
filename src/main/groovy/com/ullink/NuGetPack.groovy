@@ -1,63 +1,95 @@
 package com.ullink
 
 import com.ullink.util.GradleHelper
-import groovy.util.slurpersupport.GPathResult
+import groovy.xml.XmlSlurper
+import groovy.xml.slurpersupport.GPathResult
 import org.apache.commons.io.FilenameUtils
+import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.plugins.BasePlugin
+import org.gradle.api.provider.MapProperty
+import org.gradle.api.provider.Property
 import org.gradle.api.tasks.*
 
-class NuGetPack extends BaseNuGet {
+abstract class NuGetPack extends BaseNuGet {
+
+    @Internal
     File nuspecFile
 
     @Optional
     @InputFile
-    File csprojPath
+    abstract RegularFileProperty getCsprojPath()
 
     @OutputDirectory
-    File destinationDir = new File(project.buildDir, project.convention.plugins.base.distsDirName)
+    abstract DirectoryProperty getDestinationDir()
+
     @Optional
     @InputFile
-    File basePath
+    abstract RegularFileProperty getBasePath()
+
     @Optional
     @Input
-    def packageVersion
+    abstract Property<Object> getPackageVersion()
+
     @Optional
     @Input
-    def exclude
+    abstract Property<Object> getExclude()
+
     @Input
-    def generateSymbols = false
+    abstract Property<Object> getGenerateSymbols()
+
     @Input
-    def tool = false
+    abstract Property<Object> getTool()
+
     @Input
-    def build = false
+    abstract Property<Object> getBuild()
+
     @Input
-    def defaultExcludes = true
+    abstract Property<Object> getDefaultExcludes()
+
     @Input
-    def packageAnalysis = true
+    abstract Property<Object> getPackageAnalysis()
+
     @Input
-    def includeReferencedProjects = false
+    abstract Property<Object> getIncludeReferencedProjects()
+
     @Input
-    def includeEmptyDirectories = true
+    abstract Property<Object> getIncludeEmptyDirectories()
+
     @Input
-    def properties = [:]
+    abstract MapProperty<String, Object> getProperties()
+
     @Optional
     @Input
-    def minClientVersion
+    abstract Property<Object> getMinClientVersion()
+
     @Optional
     @Input
-    def msBuildVersion
+    abstract Property<Object> getMsBuildVersion()
 
     NuGetPack() {
         super('pack')
         // Force always execute
         outputs.upToDateWhen { false }
+        destinationDir.convention(
+                project.layout.buildDirectory.dir('distributions').get()
+        )
+        generateSymbols.convention(false)
+        tool.convention(false)
+        build.convention(false)
+        defaultExcludes.convention(true)
+        packageAnalysis.convention(true)
+        includeReferencedProjects.convention(false)
+        includeEmptyDirectories.convention(true)
+        properties.convention([:])
 
         project.afterEvaluate {
             def spec = getNuspec()
             def specSources = spec?.files?.file?.collect { it.@src.text() }
             if (specSources && specSources.any()) {
-                project.tasks.matching {
-                    it.class.name.startsWith("com.ullink.Msbuild") && it.projects.values().any { specSources.contains it.properties.TargetPath }
+                project.tasks.matching { matchingTask ->
+                    matchingTask.class.name.startsWith('com.ullink.Msbuild') &&
+                            matchingTask.projects.values().any { specSources.contains it.properties.TargetPath }
                 }.each {
                     dependsOn it
                 }
@@ -65,46 +97,36 @@ class NuGetPack extends BaseNuGet {
         }
     }
 
-    void setDestinationDir(String path) {
-        destinationDir = project.file(path)
-    }
-
-    void setNuspecFile(String path) {
-        nuspecFile = project.file(path)
-    }
-
-    void setCsprojPath(String path) {
-        csprojPath = project.file(path)
-    }
 
     @Override
     void exec() {
         args getNuspecOrCsproj()
         def spec = getNuspec()
 
-        def destDir = project.file(getDestinationDir())
+        def destDir = getDestinationDir().getAsFile().get()
         if (!destDir.exists()) {
             destDir.mkdirs()
         }
         args '-OutputDirectory', destDir
 
-        if (basePath) args '-BasePath', basePath
+        if (basePath.isPresent()) args '-BasePath', basePath.get()
 
         def version = getFinalPackageVersion(spec)
         if (version) args '-Version', version
 
-        if (exclude) args '-Exclude', exclude
-        if (generateSymbols) args '-Symbols'
-        if (tool) args '-Tool'
-        if (build) args '-Build'
-        if (!defaultExcludes) args '-NoDefaultExcludes'
-        if (!packageAnalysis) args '-NoPackageAnalysis'
-        if (includeReferencedProjects) args '-IncludeReferencedProjects'
-        if (!includeEmptyDirectories) args '-ExcludeEmptyDirectories'
-        if (!properties.isEmpty()) args '-Properties', properties.collect({ k, v -> "$k=$v" }).join(';')
-        if (minClientVersion) args '-MinClientVersion', minClientVersion
-        if (!msBuildVersion) msBuildVersion = GradleHelper.getPropertyFromTask(project, 'version', 'msbuild')
-        if (msBuildVersion) args '-MsBuildVersion', msBuildVersion
+        if (exclude.isPresent()) args '-Exclude', exclude.get()
+        if (generateSymbols.isPresent()) args '-Symbols'
+        if (tool.isPresent()) args '-Tool'
+        if (build.isPresent()) args '-Build'
+        if (!defaultExcludes.isPresent()) args '-NoDefaultExcludes'
+        if (!packageAnalysis.isPresent()) args '-NoPackageAnalysis'
+        if (includeReferencedProjects.isPresent()) args '-IncludeReferencedProjects'
+        if (!includeEmptyDirectories.isPresent()) args '-ExcludeEmptyDirectories'
+        if (properties.isPresent()) args '-Properties', properties.get().collect { k, v -> "$k=$v" }.join(';')
+        if (minClientVersion.isPresent()) args '-MinClientVersion', minClientVersion.get()
+        final String _msBuildVersion = msBuildVersion.isPresent() ? msBuildVersion.get() :
+                GradleHelper.getPropertyFromTask(project, 'version', 'msbuild')
+        if (_msBuildVersion) args '-MsBuildVersion', _msBuildVersion
         super.exec()
     }
 
@@ -112,7 +134,7 @@ class NuGetPack extends BaseNuGet {
         if (dependentNuGetSpec) {
             dependentNuGetSpec.nuspec closure
         } else {
-            def nuGetSpec = project.task("nugetSpec_$name", type: NuGetSpec)
+            def nuGetSpec = project.tasks.register("nugetSpec_$name", NuGetSpec)
             nuGetSpec.with {
                 group = BasePlugin.BUILD_GROUP
                 description = "Generates nuspec file for task $name."
@@ -131,14 +153,14 @@ class NuGetPack extends BaseNuGet {
     // Because Nuget pack handle csproj or nuspec file we should be able to use it in plugin
     @InputFile
     File getNuspecOrCsproj() {
-        csprojPath ? csprojPath : getNuspecFile()
+        csprojPath.isPresent() ? csprojPath.get().asFile : getNuspecFile()
     }
 
     @Internal
     GPathResult getNuspec() {
         def nuspecFile = getNuspecFile()
         if (nuspecFile?.exists()) {
-            return new XmlSlurper(false, false).parse(project.file(nuspecFile))
+            return new XmlSlurper(false, false).parse(nuspecFile)
         }
         if (dependentNuGetSpec) {
             def generatedNuspec = dependentNuGetSpec.generateNuspec()
@@ -146,16 +168,11 @@ class NuGetPack extends BaseNuGet {
                 return new XmlSlurper(false, false).parseText(generatedNuspec)
             }
         }
+        return null
     }
 
-    @Internal
     File getNuspecFile() {
-        if (nuspecFile) {
-            return nuspecFile
-        }
-        if (dependentNuGetSpec) {
-            return dependentNuGetSpec.nuspecFile
-        }
+        nuspecFile ?: dependentNuGetSpec ? dependentNuGetSpec.nuspecFile : null as File
     }
 
     @OutputFile
@@ -163,21 +180,23 @@ class NuGetPack extends BaseNuGet {
         def spec = getNuspec()
         def version = getFinalPackageVersion(spec)
         def id = spec?.metadata?.id?.toString() ?: getIdFromMsbuildTask()
-        new File(getDestinationDir(), id + '.' + version + '.nupkg')
+        new File(getDestinationDir().getAsFile().get(), id + '.' + version + '.nupkg')
     }
 
-    private String getFinalPackageVersion(spec) {
-        return packageVersion ?: spec?.metadata?.version ?: project.version
+    private String getFinalPackageVersion(def spec) {
+        packageVersion.isPresent() ? packageVersion.get() : spec?.metadata?.version ?: project.version
     }
 
     @Internal
     String getIdFromMsbuildTask() {
-        def isInputProject = { csprojPath.equalsIgnoreCase(it.projectFile) }
+        def isInputProject = { csprojPath.get().asFile.equals(it.projectFile) }
         def msbuildTask = project.tasks.find {
-            it.class.name.startsWith("com.ullink.Msbuild") && it.projects.values().any(isInputProject)
+            it.class.name.startsWith('com.ullink.Msbuild') && it.projects.values().any(isInputProject)
         }
         if (msbuildTask != null) {
-            FilenameUtils.removeExtension(msbuildTask.projects.values().find(isInputProject).dotnetAssemblyFile.name)
+            return FilenameUtils.removeExtension(msbuildTask.projects.values().find(isInputProject).dotnetAssemblyFile.name)
         }
+        return null
     }
+
 }

@@ -12,13 +12,13 @@ class NuGetPluginTest {
     private Project project
 
     @Before
-    public void init() {
+    void init() {
         project = ProjectBuilder.builder().build()
         project.apply plugin: 'nuget'
     }
 
     @Test
-    public void nugetPluginAddsNuGetTasksToProject() {
+    void nugetPluginAddsNuGetTasksToProject() {
         assertTrue(project.tasks.nugetPack instanceof NuGetPack)
         assertTrue(project.tasks.nugetPush instanceof NuGetPush)
         assertTrue(project.tasks.nugetSpec instanceof NuGetSpec)
@@ -27,7 +27,9 @@ class NuGetPluginTest {
 
     @Test
     public void nugetPackWorks() {
-        File nuspec = new File(project.tasks.nugetPack.temporaryDir, 'foo.nuspec')
+        def task = project.tasks.named('nugetPack').get()
+        def temporaryDir = task.temporaryDir
+        File nuspec = new File(temporaryDir, 'foo.nuspec')
         nuspec.text = '''<?xml version='1.0'?>
 <package xmlns='http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd'>
   <metadata>
@@ -41,21 +43,23 @@ class NuGetPluginTest {
   </files>
 </package>'''
 
-        File fooFile = new File(project.tasks.nugetPack.temporaryDir, 'foo.txt')
+        File fooFile = new File(temporaryDir, 'foo.txt')
         fooFile.text = "Bar"
 
         project.nugetPack {
-            basePath = project.tasks.nugetPack.temporaryDir
+            basePath = temporaryDir
             nuspecFile = nuspec
         }
 
-        project.tasks.nugetPack.exec()
-        assertTrue(project.tasks.nugetPack.packageFile.exists())
+        task.exec()
+        assertTrue(task.packageFile.exists())
     }
 
     @Test
     void nugetPackSpecifyVersion() {
-        File nuspec = new File(project.tasks.nugetPack.temporaryDir, 'bar.nuspec')
+        def task = project.tasks.named('nugetPack').get()
+        def temporaryDir = task.temporaryDir
+        File nuspec = new File(temporaryDir, 'bar.nuspec')
         nuspec.text = '''<?xml version='1.0'?>
 <package xmlns='http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd'>
   <metadata>
@@ -69,18 +73,18 @@ class NuGetPluginTest {
   </files>
 </package>'''
 
-        File fooFile = new File(project.tasks.nugetPack.temporaryDir, 'bar.txt')
-        fooFile.text = "Bar"
+        File fooFile = new File(temporaryDir, 'bar.txt')
+        fooFile.text = 'Bar'
 
         project.nugetPack {
-            basePath = project.tasks.nugetPack.temporaryDir
+            basePath = temporaryDir
             nuspecFile = nuspec
-            packageVersion = "100.200.300"
+            packageVersion = '100.200.300'
         }
 
-        project.tasks.nugetPack.exec()
-        def packageFile = project.tasks.nugetPack.packageFile
-        assertEquals("bar.100.200.300.nupkg", packageFile.name)
+        task.exec()
+        def packageFile = task.packageFile
+        assertEquals('bar.100.200.300.nupkg', packageFile.name)
         assertTrue(packageFile.exists())
     }
 }

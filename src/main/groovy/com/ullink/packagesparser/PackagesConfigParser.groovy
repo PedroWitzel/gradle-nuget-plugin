@@ -1,24 +1,24 @@
 package com.ullink.packagesparser
 
+import groovy.xml.XmlParser
+
 class PackagesConfigParser implements NugetParser {
+
     @Override
     Collection getDependencies(File file) {
         def defaultDependencies = []
-        def packages = new XmlParser().parse(file)
-        packages.package
+        new XmlParser().parse(file)
+                .package
                 .findAll { !it.@developmentDependency.toString().toBoolean() }
-                .each {
-            packageElement ->
-                defaultDependencies.add({
-                    dependency(id: packageElement.@id, version: getVersion(packageElement))
-                })
-        }
-        return defaultDependencies;
+                .each { packageElement ->
+                    defaultDependencies.add({
+                        dependency(id: packageElement.@id, version: getVersion(packageElement))
+                    })
+                }
+        return defaultDependencies
     }
 
-    String getVersion(Object element) {
-        if (element.@allowedVersions)
-            return element.@allowedVersions
-        return  element.@version
+    static String getVersion(Object element) {
+        element.@allowedVersions ?: element.@version
     }
 }

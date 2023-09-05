@@ -1,25 +1,29 @@
 package com.ullink
 
-
+import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputFile
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.Optional
 
-class NuGetPush extends BaseNuGet {
+abstract class NuGetPush extends BaseNuGet {
 
     @Optional
     @InputFile
-    File nupkgFile
+    abstract RegularFileProperty getNupkgFile()
+
     @Optional
     @Input
-    def serverUrl
+    abstract Property<String> getServerUrl()
+
     @Optional
     @Input
-    def apiKey
+    abstract Property<String> getApiKey()
+
     @Optional
     @InputFile
-    def configFile
+    abstract RegularFileProperty getConfigFile()
 
     NuGetPush() {
         super('push')
@@ -28,23 +32,10 @@ class NuGetPush extends BaseNuGet {
         outputs.upToDateWhen { false }
     }
 
-    void setNupkgFile(String path) {
-        nupkgFile = project.file(path)
-    }
-
-    void setApiKey(String key) {
-        apiKey = key
-    }
-
-    void setConfigFile(String path) {
-        configFile = project.file(path)
-    }
-
     @Optional
     @InputFile
     File getNugetPackOutputFile() {
-        if (dependentNuGetPack)
-           dependentNuGetPack.packageFile
+        if (dependentNuGetPack) dependentNuGetPack.packageFile
     }
 
     @Internal
@@ -54,11 +45,11 @@ class NuGetPush extends BaseNuGet {
 
     @Override
     void exec() {
-        args nupkgFile ?: nugetPackOutputFile
+        args nupkgFile.isPresent() ? nupkgFile.get().asFile.path : nugetPackOutputFile
 
-        if (serverUrl) args '-Source', serverUrl
-        if (apiKey) args '-ApiKey', apiKey
-        if (configFile) args '-ConfigFile', configFile
+        if (serverUrl.isPresent()) args '-Source', serverUrl.get()
+        if (apiKey.isPresent()) args '-ApiKey', apiKey.get()
+        if (configFile.isPresent()) args '-ConfigFile', configFile.get().asFile.path
 
         super.exec()
     }

@@ -1,77 +1,97 @@
 package com.ullink
 
-import org.gradle.api.tasks.*;
+import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.provider.Property
+import org.gradle.api.provider.SetProperty
+import org.gradle.api.tasks.*
 
-class NuGetInstall extends BaseNuGet {
+abstract class NuGetInstall extends BaseNuGet {
 
     @Optional
     @Input
-    String packageId
+    abstract Property<String> getPackageId()
+
     @Optional
     @InputFile
-    File packagesConfigFile
+    abstract RegularFileProperty getPackagesConfigFile()
+
     @Input
-    def sources = [] as Set
+    abstract SetProperty<Object> getSources()
+
     @Optional
     @OutputDirectory
-    File outputDirectory
+    abstract DirectoryProperty getOutputDirectory()
+
     @Optional
     @Input
-    def version
+    abstract Property<String> getVersion()
+
     @Input
-    def includeVersionInPath = true
+    abstract Property<Boolean> getIncludeVersionInPath()
+
     @Input
-    def prerelease = false
+    abstract Property<Boolean> getPrerelease()
+
     @Input
-    def noCache = false
+    abstract Property<Boolean> getNoCache()
+
     @Input
-    def requireConsent = false
+    abstract Property<Boolean> getRequireConsent()
+
     @Optional
     @InputDirectory
-    File solutionDirectory
+    abstract DirectoryProperty getSolutionDirectory()
+
     @Optional
     @Input
-    def conflictAction
+    abstract Property<Object> getConflictAction()
+
     @Optional
     @InputFile
-    File configFile
+    abstract RegularFileProperty getConfigFile()
 
     NuGetInstall() {
         super('install')
+        includeVersionInPath.convention(true)
+        prerelease.convention(false)
+        noCache.convention(false)
+        requireConsent.convention(false)
     }
 
     void setPackagesConfigFile(String path) {
-        packagesConfigFile = project.file(path)
+        packagesConfigFile.set(project.file(path))
     }
 
     void setOutputDirectory(String path) {
-        outputDirectory = project.file(path)
+        outputDirectory.set(project.file(path))
     }
 
     void setSolutionDirectory(String path) {
-        solutionDirectory = project.file(path)
+        solutionDirectory.set(project.file(path))
     }
 
     void setConfigFile(String path) {
-        configFile = project.file(path)
+        configFile.set(project.file(path))
     }
 
     @Override
     void exec() {
-        if (packageId) args packageId
-        if (packagesConfigFile) args packagesConfigFile
+        if (packageId.isPresent()) args packageId.get()
+        if (packagesConfigFile.isPresent()) args packagesConfigFile.get()
 
-        if (!sources.isEmpty()) args '-Source', sources.join(';')
-        if (outputDirectory) args '-OutputDirectory', outputDirectory
-        if (version) args '-Version', version
-        if (!includeVersionInPath) args '-ExcludeVersion'
-        if (prerelease) args '-Prerelease'
-        if (noCache) args '-NoCache'
-        if (requireConsent) args '-RequireConsent'
-        if (solutionDirectory) args '-SolutionDirectory', solutionDirectory
-        if (conflictAction) args '-FileConflictAction', conflictAction
-        if (configFile) args '-ConfigFile', configFile
+        if (sources.isPresent()) args '-Source', sources.get().join(';')
+        if (outputDirectory.isPresent()) args '-OutputDirectory', outputDirectory.get()
+        if (version.isPresent()) args '-Version', version.get()
+        if (!includeVersionInPath.isPresent()) args '-ExcludeVersion'
+        if (prerelease.isPresent()) args '-Prerelease'
+        if (noCache.isPresent()) args '-NoCache'
+        if (requireConsent.isPresent()) args '-RequireConsent'
+        if (solutionDirectory.isPresent()) args '-SolutionDirectory', solutionDirectory.get()
+        if (conflictAction.isPresent()) args '-FileConflictAction', conflictAction.get()
+        if (configFile.isPresent()) args '-ConfigFile', configFile.get()
 
         super.exec()
     }
+
 }

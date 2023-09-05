@@ -1,14 +1,18 @@
 package com.ullink
 
-import org.gradle.api.tasks.Exec
+import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Console
-import org.gradle.api.tasks.Optional
+import org.gradle.api.tasks.Exec
 import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.Optional
+
 import java.nio.file.Paths
 
-import static org.apache.tools.ant.taskdefs.condition.Os.*
+import static org.apache.tools.ant.taskdefs.condition.Os.FAMILY_WINDOWS
+import static org.apache.tools.ant.taskdefs.condition.Os.isFamily
 
-class BaseNuGet extends Exec {
+abstract class BaseNuGet extends Exec {
+
     private static final String NUGET_EXE = 'NuGet.exe'
 
     @Console
@@ -16,7 +20,7 @@ class BaseNuGet extends Exec {
 
     @Optional
     @Input
-    String nugetExePath
+    abstract Property<String> getNugetExePath()
 
     BaseNuGet() {
     }
@@ -26,15 +30,14 @@ class BaseNuGet extends Exec {
         def nugetHome = env['NUGET_HOME']
         if (nugetHome != null) {
             return new File(nugetHome)
-        } else {
-            def nugetCacheFolder = Paths.get(
-                    project.gradle.gradleUserHomeDir.absolutePath,
-                    'caches',
-                    'nuget',
-                    project.extensions.nuget.version.toString())
-
-            return nugetCacheFolder.toFile()
         }
+        def nugetCacheFolder = Paths.get(
+                project.gradle.gradleUserHomeDir.absolutePath,
+                'caches',
+                'nuget',
+                project.extensions.nuget.version.toString())
+
+        return nugetCacheFolder.toFile()
     }
 
     protected BaseNuGet(String command) {
@@ -46,11 +49,11 @@ class BaseNuGet extends Exec {
     void exec() {
         File localNuget = getNugetExeLocalPath()
 
-        project.logger.debug "Using NuGet from path $localNuget.path"
+        project.logger.debug "Using NuGet from path ${localNuget.path}"
         if (isFamily(FAMILY_WINDOWS)) {
             executable localNuget
         } else {
-            executable "mono"
+            executable 'mono'
             setArgs([localNuget.path, *getArgs()])
         }
 
@@ -63,8 +66,9 @@ class BaseNuGet extends Exec {
     private File getNugetExeLocalPath() {
         File localNuget
 
-        if (nugetExePath != null && !nugetExePath.empty && !nugetExePath.startsWith("http")) {
-            localNuget = new File(nugetExePath)
+        String exePath = nugetExePath.getOrNull()
+        if (exePath && !exePath.startsWith('http')) {
+            localNuget = new File(exePath)
 
             if (localNuget.exists()) {
                 return localNuget
@@ -73,12 +77,12 @@ class BaseNuGet extends Exec {
             throw new IllegalStateException("Unable to find nuget by path $nugetExePath (please check property 'nugetExePath')")
         }
 
-        def folder = getNugetHome()
-        localNuget = new File(folder, NUGET_EXE)
+        def nugetHome = getNugetHome()
+        localNuget = new File(nugetHome, NUGET_EXE)
 
         if (!localNuget.exists()) {
-            if (!folder.isDirectory())
-                folder.mkdirs()
+            if (!nugetHome.isDirectory())
+                nugetHome.mkdirs()
 
             def nugetUrl = getNugetDownloadLink()
 
@@ -95,10 +99,11 @@ class BaseNuGet extends Exec {
     }
 
     private String getNugetDownloadLink() {
-        if (nugetExePath != null && !nugetExePath.empty && nugetExePath.startsWith("http")) {
+        String exePath = nugetExePath.getOrNull()
+        if (exePath && exePath.startsWith('http')) {
             project.logger.debug("Nuget url path is resolved from property 'nugetExePath'")
 
-            return nugetExePath
+            return exePath
         }
 
         def exeName = project.extensions.nuget.version < '3.4.4' ? 'nuget.exe' : 'NuGet.exe'
@@ -107,8 +112,8 @@ class BaseNuGet extends Exec {
     }
 
     private String getNugetVerbosity() {
-        if (logger.debugEnabled) return 'detailed'
-        if (logger.infoEnabled) return 'normal'
+        if (project.logger.debugEnabled) return 'detailed'
+        if (project.logger.infoEnabled) return 'normal'
         return 'quiet'
     }
 }

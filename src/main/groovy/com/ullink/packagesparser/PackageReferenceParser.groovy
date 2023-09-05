@@ -1,7 +1,7 @@
 package com.ullink.packagesparser
 
-import groovy.util.slurpersupport.GPathResult
-
+import groovy.xml.XmlSlurper
+import groovy.xml.slurpersupport.GPathResult
 
 class PackageReferenceParser implements NugetParser {
 
@@ -14,25 +14,25 @@ class PackageReferenceParser implements NugetParser {
         def project = new XmlSlurper().parse(file)
 
         project.'**'
-            .findAll { it.name() == 'PackageReference' && getAttributeOrNodeText(it, 'PrivateAssets') != 'all' }
-            .each {
-                def reference = it as GPathResult
-                def includeAssets = getAttributeOrNodeText(reference, 'IncludeAssets')
-                def excludeAssets = getAttributeOrNodeText(reference, 'ExcludeAssets')
-                def args = [
-                    id: getAttributeOrNodeText(reference, 'Include'), version: getAttributeOrNodeText(reference, 'Version')
-                ]
-                if (includeAssets) {
-                    args.include = includeAssets
-                }
-                if (excludeAssets) {
-                    args.exclude = excludeAssets
-                }
+                .findAll { it.name() == 'PackageReference' && getAttributeOrNodeText(it, 'PrivateAssets') != 'all' }
+                .each {
+                    def reference = it as GPathResult
+                    def includeAssets = getAttributeOrNodeText(reference, 'IncludeAssets')
+                    def excludeAssets = getAttributeOrNodeText(reference, 'ExcludeAssets')
+                    def args = [
+                            id: getAttributeOrNodeText(reference, 'Include'), version: getAttributeOrNodeText(reference, 'Version')
+                    ]
+                    if (includeAssets) {
+                        args.include = includeAssets
+                    }
+                    if (excludeAssets) {
+                        args.exclude = excludeAssets
+                    }
 
-                defaultDependencies.add({
-                    dependency(args)
-                })
-        }
+                    defaultDependencies.add({
+                        dependency(args)
+                    })
+                }
         return defaultDependencies
     }
 
